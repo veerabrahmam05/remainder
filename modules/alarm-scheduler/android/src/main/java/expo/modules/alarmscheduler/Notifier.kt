@@ -86,7 +86,7 @@ object Notifier {
     }
 
     val n = builder(ctx, if (isFollowUp) CHANNEL_FOLLOWUPS else CHANNEL_REMINDERS)
-      .setSmallIcon(android.R.drawable.ic_popup_reminder)
+      .setSmallIcon(R.drawable.ic_stat_remainder)
       .setContentTitle(e.title)
       .setContentText(e.body)
       .setAutoCancel(true)
@@ -118,7 +118,7 @@ object Notifier {
     )
 
     return builder(ctx, CHANNEL_ALARM)
-      .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+      .setSmallIcon(R.drawable.ic_stat_remainder)
       .setContentTitle(e.title)
       .setContentText(e.body)
       .setCategory(Notification.CATEGORY_ALARM)

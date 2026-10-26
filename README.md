@@ -65,6 +65,7 @@ The repo includes an `.npmrc` with `legacy-peer-deps=true`. Keep it.
 | Command | What it does |
 | --- | --- |
 | `npm start` | Start Metro for the development build |
+| `npm run prebuild` | Regenerate the native `android/` folder from `app.json`, `assets/` and config plugins. Run it after changing the app icon, splash, `app.json`, a config plugin, or native dependencies, **before** building |
 | `npm run android` | Build and install the debug (dev client) app on a connected device or emulator |
 | `npm run android:release` | Build and install the standalone release app (no dev server needed) |
 | `npm run typecheck` | TypeScript check |

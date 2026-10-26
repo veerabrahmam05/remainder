@@ -13,7 +13,7 @@
     "android": {
       "package": "com.veera.remainder",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#110C09",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -40,7 +40,20 @@
           "version": "3.31.6"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#F6F2EF",
+          "dark": {
+            "image": "./assets/splash-icon.png",
+            "backgroundColor": "#110C09"
+          }
+        }
+      ]
     ]
   }
 }
