@@ -38,6 +38,20 @@ npx expo run:android
 
 `android/` is generated and git-ignored, so run `prebuild` once after cloning (and again after changing `app.json` or a config plugin). Use `npx expo start --dev-client` afterward for day-to-day JavaScript work; only native changes (anything under `modules/`, `app.json`, or new native dependencies) need a rebuild.
 
+### Running without the dev server (release build)
+
+The build above is a **debug** build: it contains no JavaScript and loads the app from Metro, so it only opens while `npm start` is running. For a standalone app that opens on its own, build the **release** variant, which bundles the JavaScript into the APK:
+
+```bash
+npm run android:release
+```
+
+- It installs over the existing app (both variants are signed with the same keystore), so your tasks and history are kept.
+- Every JavaScript change needs a new release build to show up. Use the debug build and `npm start` for day-to-day development, then switch back to release when you want the standalone app. The two can be swapped freely.
+- The release variant is signed with the debug keystore, which is fine for personal use. Generate a proper keystore before distributing the app to anyone else or publishing it.
+- Use `npm run android:release` rather than running Gradle directly: Expo builds only your device's CPU architecture, whereas Gradle by default compiles all four, which is much slower.
+- A release build has no dev menu and no red error screen. If it crashes on startup, read the log with `adb logcat -d -s ReactNativeJS:V AndroidRuntime:E`.
+
 ### Why `.npmrc` sets `legacy-peer-deps=true`
 
 The repo includes an `.npmrc` with `legacy-peer-deps=true`. Keep it.
@@ -51,7 +65,8 @@ The repo includes an `.npmrc` with `legacy-peer-deps=true`. Keep it.
 | Command | What it does |
 | --- | --- |
 | `npm start` | Start Metro for the development build |
-| `npm run android` | Build and install the app on a connected device or emulator |
+| `npm run android` | Build and install the debug (dev client) app on a connected device or emulator |
+| `npm run android:release` | Build and install the standalone release app (no dev server needed) |
 | `npm run typecheck` | TypeScript check |
 | `npm test` | Compile and run the domain unit tests (`src/domain`) |
 
