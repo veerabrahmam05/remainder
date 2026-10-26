@@ -46,7 +46,8 @@ The build above is a **debug** build: it contains no JavaScript and loads the ap
 npm run android:release
 ```
 
-- It installs over the existing app (both variants are signed with the same keystore), so your tasks and history are kept.
+- It runs `npm run prebuild` first, so changes to the icon, splash, `app.json` or plugins are always picked up. `npm run android` (debug) does **not** do this; run `npm run prebuild` yourself before it after such changes.
+- It installs over the existing app (both variants are signed with the same keystore), so your tasks and history are kept. Never uninstall the app to refresh it: that deletes the local database.
 - Every JavaScript change needs a new release build to show up. Use the debug build and `npm start` for day-to-day development, then switch back to release when you want the standalone app. The two can be swapped freely.
 - The release variant is signed with the debug keystore, which is fine for personal use. Generate a proper keystore before distributing the app to anyone else or publishing it.
 - Use `npm run android:release` rather than running Gradle directly: Expo builds only your device's CPU architecture, whereas Gradle by default compiles all four, which is much slower.
@@ -67,7 +68,7 @@ The repo includes an `.npmrc` with `legacy-peer-deps=true`. Keep it.
 | `npm start` | Start Metro for the development build |
 | `npm run prebuild` | Regenerate the native `android/` folder from `app.json`, `assets/` and config plugins. Run it after changing the app icon, splash, `app.json`, a config plugin, or native dependencies, **before** building |
 | `npm run android` | Build and install the debug (dev client) app on a connected device or emulator |
-| `npm run android:release` | Build and install the standalone release app (no dev server needed) |
+| `npm run android:release` | Run `prebuild`, then build and install the standalone release app (no dev server needed) |
 | `npm run typecheck` | TypeScript check |
 | `npm test` | Compile and run the domain unit tests (`src/domain`) |
 

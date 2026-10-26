@@ -34,7 +34,7 @@
     "start": "expo start --dev-client",
     "prebuild": "expo prebuild --platform android",
     "android": "expo run:android",
-    "android:release": "expo run:android --variant release",
+    "android:release": "npm run prebuild && expo run:android --variant release",
     "typecheck": "tsc --noEmit",
     "test": "tsc -p tsconfig.test.json && node --test \".test-build/**/*.test.js\""
   },
