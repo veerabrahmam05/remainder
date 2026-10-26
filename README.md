@@ -86,4 +86,4 @@ Alarms depend on Android permissions and on how aggressive the phone's battery m
 
 ## Status
 
-Verified on a device: alarm and notification delivery (including with the phone locked) and real tasks. Long-running behavior (reboot, overnight with the app closed) is still being tested.
+Verified on a device: alarm and notification delivery (including with the phone locked), real tasks, overnight alarms with the app closed, and the "did you do it?" follow-up prompt. Not yet verified: whether alarms survive a phone reboot.
