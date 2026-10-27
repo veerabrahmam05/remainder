@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { applyPendingActions, clearResolved, markResolved, syncAlarms } from '../alarms/service';
+import { mergeBackup, type MergeResult } from '../data/backup';
 import { completionRepo, taskRepo } from '../data/repositories';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from '../data/settings';
 import { getLocalUserId } from '../data/user';
+import type { BackupFile } from '../domain/backup';
 import { dateKey } from '../domain/schedule';
 import type { Completion, CompletionStatus, NewTask, Task } from '../domain/types';
 import { applyThemeMode } from '../ui/appearance';
@@ -25,6 +27,8 @@ interface AppState {
   setStatus(taskId: string, date: string, status: CompletionStatus | null): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   disableFollowUp(taskId: string): Promise<void>;
+  /** Merges a parsed backup into local data, then refreshes state, settings and alarms. */
+  restoreBackup(backup: BackupFile): Promise<MergeResult>;
 }
 
 export const useApp = create<AppState>((set, get) => {
@@ -107,6 +111,23 @@ export const useApp = create<AppState>((set, get) => {
       await taskRepo.update(taskId, { askFollowUp: false });
       await reload();
       await resync();
+    },
+
+    async restoreBackup(backup) {
+      const result = await mergeBackup(backup, get().userId);
+      await reload();
+
+      // Settings last: updateSettings re-syncs alarms against the freshly loaded tasks.
+      const settings = backup.settings;
+      if (settings && Object.keys(settings).length > 0) await get().updateSettings(settings);
+      else await resync();
+
+      // Occurrences already done/skipped today must not ring or prompt again.
+      const today = get().today;
+      for (const c of backup.completions) {
+        if (c.date === today && c.deletedAt === null) await markResolved(c.taskId, c.date);
+      }
+      return result;
     },
   };
 });

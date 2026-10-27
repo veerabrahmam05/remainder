@@ -24,7 +24,7 @@ export interface CompletionRepository {
 
 // ---- row mapping -----------------------------------------------------------
 
-interface TaskRow {
+export interface TaskRow {
   id: string;
   owner_id: string;
   title: string;
@@ -42,7 +42,7 @@ interface TaskRow {
   deleted_at: number | null;
 }
 
-function toTask(r: TaskRow): Task {
+export function toTask(r: TaskRow): Task {
   return {
     id: r.id,
     ownerId: r.owner_id,
@@ -63,7 +63,7 @@ function toTask(r: TaskRow): Task {
   };
 }
 
-interface CompletionRow {
+export interface CompletionRow {
   id: string;
   task_id: string;
   date: string;
@@ -73,7 +73,7 @@ interface CompletionRow {
   deleted_at: number | null;
 }
 
-const toCompletion = (r: CompletionRow): Completion => ({
+export const toCompletion = (r: CompletionRow): Completion => ({
   id: r.id,
   taskId: r.task_id,
   date: r.date,

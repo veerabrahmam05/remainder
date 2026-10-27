@@ -10,6 +10,7 @@ A personal routine and reminder app for Android. Add repeating tasks (daily, wee
 - "Did you do it?" follow-up prompt a configurable time after a task, with a per-task "don't ask again" option.
 - History with per-day status (done, skipped, missed) and streaks. "Missed" is derived, never stored.
 - Light, dark, and system themes.
+- JSON backup and restore of tasks, history and settings (Settings > Backup).
 
 ## Tech stack
 
@@ -80,6 +81,7 @@ src/domain/              Pure logic: schedules, occurrence status, history, stre
 src/data/                SQLite schema + migrations, repositories, settings
 src/store/               Zustand store
 src/alarms/              Builds native alarm entries, syncs them, applies actions taken from notifications
+src/backup/              Export (write file + share sheet) and restore (file picker + validate)
 src/ui/                  Theme, Text wrapper (Montserrat), shared components
 modules/alarm-scheduler/ Kotlin Expo module: AlarmManager scheduling, alarm service, lock-screen UI
 plugins/                 Expo config plugin pinning the CMake version
@@ -91,6 +93,22 @@ plugins/                 Expo config plugin pinning the CMake version
 - The native side stores the entries, schedules them with `AlarmManager`, and re-arms them after a reboot or a clock/timezone change.
 - When an alarm fires, native code rings it in a foreground service. Done, Skip and Snooze taken from notifications or the alarm screen are queued natively and applied to the database when the app next opens.
 - Data is local only, but the model is sync-ready: UUID keys, `updatedAt` / `deletedAt` on every row, and an `ownerId` on tasks.
+
+## Backup and restore
+
+All data lives in the phone's local database, and **uninstalling the app deletes it**. Use **Settings > Backup** to protect it:
+
+- **Export backup** writes `remainder-backup-YYYY-MM-DD.json` and opens the share sheet, so you can save it to Drive or Files, or send it to yourself.
+- **Restore from backup** lets you pick a backup file, shows what it contains, and merges it into the phone. It is all-or-nothing: if anything fails, nothing is changed.
+
+How a restore merges:
+
+- Tasks match by id and history entries by task + date. An item already on the phone is replaced only if the backup copy has a newer `updatedAt`, so restoring an old backup never overwrites newer edits. Deletions are included: a task deleted after the backup was made stays deleted.
+- Restored tasks are assigned to the current local user. After a reinstall the local user id is new, so tasks would otherwise be invisible.
+- Settings (theme, default alert type, follow-up delay) are restored too, and alarms are rescheduled.
+- The file is validated before anything is touched: wrong app, a newer format version, or malformed tasks or history entries are rejected with a message. Unknown fields are ignored.
+
+The file format is versioned (`"version": 1`) and the parser lives in `src/domain/backup.ts`, with tests in `src/domain/backup.test.ts`.
 
 ## Windows notes
 

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, ScrollView, StyleSheet, View } from 'react-native';
 import { getNative } from '../../src/alarms/native';
+import { exportBackup, pickBackup } from '../../src/backup/service';
 import { FOLLOW_UP_DELAY_OPTIONS, type ThemeMode } from '../../src/data/settings';
+import { summarizeBackup, type BackupFile } from '../../src/domain/backup';
 import { useApp } from '../../src/store/app';
 import { Button, Card, Chip, SectionTitle } from '../../src/ui/components';
 import { Text } from '../../src/ui/Text';
@@ -35,7 +37,7 @@ const delayLabel =(min: number) => (min < 60 ? `${min} min` : `${min / 60} h`);
 
 export default function SettingsScreen() {
   const t = useTheme();
-  const { settings, updateSettings } = useApp();
+  const { settings, updateSettings, restoreBackup } = useApp();
   const [perms, setPerms] = useState<PermissionState>(readPermissions);
 
   const refreshPerms = useCallback(() => setPerms(readPermissions()), []);
@@ -46,6 +48,57 @@ export default function SettingsScreen() {
   }, [refreshPerms]);
 
   const native = getNative();
+  const [busy, setBusy] = useState(false);
+
+  const onExport = async () => {
+    setBusy(true);
+    try {
+      await exportBackup();
+    } catch (e) {
+      Alert.alert('Backup failed', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const applyRestore = async (backup: BackupFile) => {
+    setBusy(true);
+    try {
+      const r = await restoreBackup(backup);
+      Alert.alert(
+        'Restore complete',
+        `Tasks: ${r.tasksAdded} added, ${r.tasksUpdated} updated.\nHistory: ${r.completionsAdded} added, ${r.completionsUpdated} updated.`,
+      );
+    } catch (e) {
+      Alert.alert('Restore failed', `Nothing was changed.\n\n${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRestore = async () => {
+    setBusy(true);
+    try {
+      const picked = await pickBackup();
+      if (picked.kind === 'canceled') return;
+      if (picked.kind === 'error') return Alert.alert('Can’t restore this file', picked.error);
+
+      const s = summarizeBackup(picked.backup);
+      const made = picked.backup.exportedAt ? new Date(picked.backup.exportedAt).toLocaleString() : 'unknown time';
+      Alert.alert(
+        'Restore this backup?',
+        `${picked.fileName}\nMade ${made}\n${s.tasks} tasks, ${s.completions} history entries\n\nItems already on this phone are only replaced if the backup copy is newer.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Restore', onPress: () => void applyRestore(picked.backup) },
+        ],
+      );
+    } catch (e) {
+      Alert.alert('Restore failed', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const test = async (kind: 'alarm' | 'notification') => {
     try {
@@ -146,6 +199,17 @@ export default function SettingsScreen() {
       ) : (
         <Text style={{ color: t.muted }}>Alarm support isn’t available in this build.</Text>
       )}
+
+      <SectionTitle>Backup</SectionTitle>
+      <View style={{ gap: 10 }}>
+        <Button label="Export backup" variant="secondary" onPress={onExport} disabled={busy} />
+        <Button label="Restore from backup" variant="secondary" onPress={onRestore} disabled={busy} />
+      </View>
+      <Text style={{ color: t.muted, marginTop: 8 }}>
+        Export saves your tasks, history and settings to a file you can keep in Drive or send to yourself.
+        Restore merges a backup into this phone; anything already here is replaced only if the backup copy
+        is newer. Uninstalling the app deletes its data, so export before you do.
+      </Text>
 
       {perms.available ? (
         <>
