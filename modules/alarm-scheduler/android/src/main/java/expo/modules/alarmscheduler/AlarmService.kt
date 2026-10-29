@@ -4,9 +4,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -26,7 +24,6 @@ class AlarmService : Service() {
     const val ACTION_STOP = "expo.modules.alarmscheduler.STOP"
     const val ACTION_STOPPED_BROADCAST = "expo.modules.alarmscheduler.ALARM_STOPPED"
 
-    private const val SNOOZE_MINUTES = 10
     private const val AUTO_STOP_MS = 5 * 60 * 1000L
 
     fun intent(ctx: Context, action: String, e: AlarmEntryView): Intent =
@@ -37,6 +34,8 @@ class AlarmService : Service() {
         .putExtra(AlarmScheduler.EXTRA_DATE, e.date)
         .putExtra(Notifier.EXTRA_TITLE, e.title)
         .putExtra(Notifier.EXTRA_BODY, e.body)
+        .putExtra(Notifier.EXTRA_SOUND, e.sound)
+        .putExtra(Notifier.EXTRA_SNOOZE_MIN, e.snoozeMin)
   }
 
   private var player: MediaPlayer? = null
@@ -54,6 +53,8 @@ class AlarmService : Service() {
         date = it.getStringExtra(AlarmScheduler.EXTRA_DATE) ?: "",
         title = it.getStringExtra(Notifier.EXTRA_TITLE) ?: "",
         body = it.getStringExtra(Notifier.EXTRA_BODY) ?: "",
+        sound = it.getStringExtra(Notifier.EXTRA_SOUND),
+        snoozeMin = it.getIntExtra(Notifier.EXTRA_SNOOZE_MIN, 10),
       )
     }
 
@@ -87,33 +88,15 @@ class AlarmService : Service() {
     } else {
       startForeground(id, notification)
     }
-    play()
+    play(view.sound)
     vibrate()
     handler.removeCallbacks(autoStop)
     handler.postDelayed(autoStop, AUTO_STOP_MS)
   }
 
-  private fun play() {
-    val uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM)
-      ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-      ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-    try {
-      player = MediaPlayer().apply {
-        setAudioAttributes(
-          AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build(),
-        )
-        setDataSource(this@AlarmService, uri)
-        isLooping = true
-        prepare()
-        start()
-      }
-    } catch (_: Exception) {
-      player?.release()
-      player = null // vibration + notification still alert the user
-    }
+  private fun play(sound: String?) {
+    // null here means nothing at all could play; vibration + the notification still alert the user.
+    player = SoundPlayer.create(this, sound, loop = true, fallbackToDefault = true)
   }
 
   @Suppress("DEPRECATION")
@@ -141,7 +124,7 @@ class AlarmService : Service() {
   }
 
   private fun snooze(view: AlarmEntryView) {
-    val at = System.currentTimeMillis() + SNOOZE_MINUTES * 60_000L
+    val at = System.currentTimeMillis() + view.snoozeMin.coerceAtLeast(1) * 60_000L
     val cal = Calendar.getInstance().apply { timeInMillis = at }
     val entry = AlarmEntry(
       key = "snooze:${view.taskId}",
@@ -154,6 +137,8 @@ class AlarmService : Service() {
       daysMask = 0,
       onceDate = null,
       offsetMin = 0,
+      sound = view.sound, // a snoozed alarm keeps ringing with the same sound...
+      snoozeMin = view.snoozeMin, // ...and snoozes for the same length again
     )
     AlarmScheduler.scheduleOneShot(this, entry, at, view.date)
   }

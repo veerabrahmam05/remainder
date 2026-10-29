@@ -1,5 +1,6 @@
 import { dateKey } from './schedule';
-import type { AlertType, Completion, Task, Weekday } from './types';
+import { parseAlarmSound, portableSound } from './sound';
+import type { AlarmSound, AlertType, Completion, Task, Weekday } from './types';
 
 export const BACKUP_APP = 'remainder';
 /** Bump when the file shape changes incompatibly. Older versions must keep parsing. */
@@ -9,6 +10,8 @@ export interface BackupSettings {
   defaultAlertType?: AlertType;
   followUpDelayMin?: number;
   themeMode?: 'system' | 'light' | 'dark';
+  defaultAlarmSound?: AlarmSound;
+  snoozeMinutes?: number;
 }
 
 export interface BackupFile {
@@ -102,6 +105,8 @@ function parseTask(raw: unknown, i: number): Task {
     timezone: isStr(raw.timezone) ? raw.timezone : 'UTC',
     repeat,
     alertType: raw.alertType as AlertType,
+    // Optional (absent in older backups). Imported files can't travel between installs, so they're dropped.
+    alarmSound: portableSound(parseAlarmSound(raw.alarmSound)),
     enabled: raw.enabled as boolean,
     askFollowUp: raw.askFollowUp as boolean,
     createdAt: raw.createdAt as number,
@@ -140,6 +145,12 @@ function parseSettings(raw: unknown): BackupSettings | undefined {
   if (isNum(raw.followUpDelayMin) && raw.followUpDelayMin > 0) out.followUpDelayMin = raw.followUpDelayMin;
   if (raw.themeMode === 'system' || raw.themeMode === 'light' || raw.themeMode === 'dark') {
     out.themeMode = raw.themeMode;
+  }
+  const sound = portableSound(parseAlarmSound(raw.defaultAlarmSound));
+  if (sound) out.defaultAlarmSound = sound;
+  // A whole number of minutes in a sane range; anything else is ignored rather than trusted.
+  if (isNum(raw.snoozeMinutes) && Number.isInteger(raw.snoozeMinutes) && raw.snoozeMinutes >= 1 && raw.snoozeMinutes <= 120) {
+    out.snoozeMinutes = raw.snoozeMinutes;
   }
   return out;
 }

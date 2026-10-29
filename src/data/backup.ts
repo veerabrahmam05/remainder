@@ -2,7 +2,7 @@ import type { BackupFile } from '../domain/backup';
 import { daysToMask } from '../domain/schedule';
 import type { Completion, Task } from '../domain/types';
 import { getDb } from './db';
-import { toCompletion, toTask, type CompletionRow, type TaskRow } from './repositories';
+import { toCompletion, toTask, writeSound, type CompletionRow, type TaskRow } from './repositories';
 
 /** Every row for export, including soft-deleted ones, so deletions survive a restore. */
 export async function readAllForBackup(ownerId: string): Promise<{ tasks: Task[]; completions: Completion[] }> {
@@ -54,13 +54,13 @@ export async function mergeBackup(backup: BackupFile, ownerId: string): Promise<
 
       await db.runAsync(
         `INSERT INTO tasks (id, owner_id, title, notes, time_of_day, timezone, repeat_kind, once_date,
-           days_mask, alert_type, enabled, ask_follow_up, created_at, updated_at, deleted_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           days_mask, alert_type, alarm_sound, enabled, ask_follow_up, created_at, updated_at, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET owner_id = excluded.owner_id, title = excluded.title,
            notes = excluded.notes, time_of_day = excluded.time_of_day, timezone = excluded.timezone,
            repeat_kind = excluded.repeat_kind, once_date = excluded.once_date, days_mask = excluded.days_mask,
-           alert_type = excluded.alert_type, enabled = excluded.enabled, ask_follow_up = excluded.ask_follow_up,
-           updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`,
+           alert_type = excluded.alert_type, alarm_sound = excluded.alarm_sound, enabled = excluded.enabled,
+           ask_follow_up = excluded.ask_follow_up, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`,
         t.id,
         ownerId,
         t.title,
@@ -71,6 +71,7 @@ export async function mergeBackup(backup: BackupFile, ownerId: string): Promise<
         t.repeat.kind === 'once' ? t.repeat.date : null,
         t.repeat.kind === 'weekly' ? daysToMask(t.repeat.days) : 0,
         t.alertType,
+        writeSound(t.alarmSound),
         t.enabled ? 1 : 0,
         t.askFollowUp ? 1 : 0,
         t.createdAt,

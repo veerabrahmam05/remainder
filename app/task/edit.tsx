@@ -3,10 +3,12 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ALL_DAYS, dateKey, fireTime, parseDateKey, WEEKDAYS, WEEKENDS } from '../../src/domain/schedule';
-import type { AlertType, Repeat, Weekday } from '../../src/domain/types';
+import { soundLabel } from '../../src/domain/sound';
+import type { AlarmSound, AlertType, Repeat, Weekday } from '../../src/domain/types';
 import { useApp } from '../../src/store/app';
 import { Button, Card, Chip, SectionTitle, Toggle } from '../../src/ui/components';
 import { formatDate, formatTime, timeToDate, toHHmm } from '../../src/ui/format';
+import { SoundPicker } from '../../src/ui/SoundPicker';
 import { Text } from '../../src/ui/Text';
 import { fonts, useTheme } from '../../src/ui/theme';
 
@@ -50,6 +52,8 @@ export default function EditTaskScreen() {
     existing?.repeat.kind === 'once' ? existing.repeat.date : dateKey(new Date()),
   );
   const [alertType, setAlertType] = useState<AlertType>(existing?.alertType ?? settings.defaultAlertType);
+  const [alarmSound, setAlarmSound] = useState<AlarmSound | null>(existing?.alarmSound ?? null);
+  const [pickingSound, setPickingSound] = useState(false);
   const [askFollowUp, setAskFollowUp] = useState(existing?.askFollowUp ?? true);
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
   const [picker, setPicker] = useState<'time' | 'date' | null>(null);
@@ -100,6 +104,7 @@ export default function EditTaskScreen() {
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           repeat: buildRepeat(),
           alertType,
+          alarmSound,
           enabled,
           askFollowUp,
         },
@@ -193,6 +198,22 @@ export default function EditTaskScreen() {
           : 'A normal notification with Done / Skip buttons.'}
       </Text>
 
+      {alertType === 'alarm' ? (
+        <Pressable
+          onPress={() => setPickingSound(true)}
+          accessibilityRole="button"
+          style={[styles.input, styles.soundRow, { borderColor: t.border, backgroundColor: t.card }]}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: t.muted, fontSize: 12 }}>Alarm sound</Text>
+            <Text style={{ color: t.text, fontWeight: '700', marginTop: 2 }} numberOfLines={1}>
+              {alarmSound ? soundLabel(alarmSound) : `Default · ${soundLabel(settings.defaultAlarmSound)}`}
+            </Text>
+          </View>
+          <Text style={{ color: t.primary, fontWeight: '700' }}>Change</Text>
+        </Pressable>
+      ) : null}
+
       <Card style={{ marginTop: 18, gap: 14 }}>
         <View style={styles.switchRow}>
           <View style={{ flex: 1 }}>
@@ -217,6 +238,14 @@ export default function EditTaskScreen() {
         {existing ? <Button label="Delete task" variant="danger" onPress={onDelete} /> : null}
       </View>
 
+      <SoundPicker
+        visible={pickingSound}
+        value={alarmSound}
+        inheritLabel={`Use default (${soundLabel(settings.defaultAlarmSound)})`}
+        onChange={setAlarmSound}
+        onClose={() => setPickingSound(false)}
+      />
+
       {picker === 'time' ? <DateTimePicker value={timeToDate(time)} mode="time" onChange={onPick} /> : null}
       {picker === 'date' ? (
         <DateTimePicker value={parseDateKey(onceDate)} mode="date" minimumDate={new Date()} onChange={onPick} />
@@ -236,6 +265,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  soundRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   switchTitle: { fontSize: 16, fontWeight: '700' },
 });

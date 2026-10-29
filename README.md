@@ -6,6 +6,8 @@ A personal routine and reminder app for Android. Add repeating tasks (daily, wee
 
 - Repeating tasks: every day, weekdays, weekends, or custom days. One-off tasks on a specific date and time.
 - Per-task alert type: **alarm** (rings until dismissed, shows over the lock screen) or **notification** (with Done / Skip buttons). A global default is set in Settings.
+- Custom alarm sounds: pick the phone's alarm tones (with preview) or import your own audio file, as a global default and optionally per task.
+- Configurable snooze length (5, 10, 15, 20 or 30 minutes) in Settings.
 - Today checklist: mark done or skip an occurrence without disabling the routine.
 - "Did you do it?" follow-up prompt a configurable time after a task, with a per-task "don't ask again" option.
 - History with per-day status (done, skipped, missed) and streaks. "Missed" is derived, never stored.
@@ -94,6 +96,17 @@ plugins/                 Expo config plugin pinning the CMake version
 - When an alarm fires, native code rings it in a foreground service. Done, Skip and Snooze taken from notifications or the alarm screen are queued natively and applied to the database when the app next opens.
 - Data is local only, but the model is sync-ready: UUID keys, `updatedAt` / `deletedAt` on every row, and an `ownerId` on tasks.
 
+## Alarm sounds
+
+Alarms (not notification-type reminders, whose sound Android fixes per channel) can play a custom sound:
+
+- **Settings > Alarm sound** sets the default. In a task's editor (alert type Alarm), **Alarm sound** overrides it for that task, or says "Use default".
+- The picker lists the phone's own alarm tones and previews each on tap (at the alarm volume, so it matches the real thing). **Choose an audio file** imports an MP3, M4A, WAV or OGG file up to 15 MB; it is copied into the app's private storage (`documentDirectory/sounds`), so it keeps working if the original is moved or deleted.
+- **An alarm is never silent because of a bad sound.** If the chosen sound can't be played (deleted file, or a tone that doesn't exist on this phone), the alarm falls back to the phone's default alarm sound, then its ringtone.
+- Snoozing keeps the same sound. Alarms that were scheduled before this feature existed use the default until you pick another.
+- **Settings > Snooze length** (5, 10, 15, 20 or 30 min, default 10) sets how long the alarm's Snooze button delays it. A snoozed alarm snoozes for the same length again, and the lock-screen button shows the current length ("Snooze 15 min"). It is global; there is no per-task snooze length.
+- The sound is stored per task as JSON in `tasks.alarm_sound` (`NULL` = use the default), and the default sound in the `settings` table. Playback and the fallback chain live in `modules/alarm-scheduler/.../SoundPlayer.kt`.
+
 ## Backup and restore
 
 All data lives in the phone's local database, and **uninstalling the app deletes it**. Use **Settings > Backup** to protect it:
@@ -105,7 +118,8 @@ How a restore merges:
 
 - Tasks match by id and history entries by task + date. An item already on the phone is replaced only if the backup copy has a newer `updatedAt`, so restoring an old backup never overwrites newer edits. Deletions are included: a task deleted after the backup was made stays deleted.
 - Restored tasks are assigned to the current local user. After a reinstall the local user id is new, so tasks would otherwise be invisible.
-- Settings (theme, default alert type, follow-up delay) are restored too, and alarms are rescheduled.
+- Settings (theme, default alert type, follow-up delay, default alarm sound) are restored too, and alarms are rescheduled.
+- **Imported audio files are not included in a backup**, because they live in the old install's private storage. A task that used one comes back using the default sound. The phone's own alarm tones are kept, and used if the new phone has them.
 - The file is validated before anything is touched: wrong app, a newer format version, or malformed tasks or history entries are rejected with a message. Unknown fields are ignored.
 
 The file format is versioned (`"version": 1`) and the parser lives in `src/domain/backup.ts`, with tests in `src/domain/backup.test.ts`.

@@ -9,6 +9,17 @@ export type Repeat =
 
 export type CompletionStatus = 'done' | 'skipped';
 
+/**
+ * What an alarm plays.
+ *  - default: the phone's default alarm sound
+ *  - system:  one of the phone's alarm tones (content:// URI, may not exist on another phone)
+ *  - file:    an audio file the user imported, copied into the app's own storage
+ */
+export type AlarmSound =
+  | { kind: 'default' }
+  | { kind: 'system'; uri: string; title: string }
+  | { kind: 'file'; uri: string; name: string };
+
 /** Fields every synced row carries. Soft-delete only, so a future sync can propagate deletes. */
 export interface SyncMeta {
   id: string; // UUID
@@ -25,6 +36,8 @@ export interface Task extends SyncMeta {
   timezone: string; // IANA tz the task was created in
   repeat: Repeat;
   alertType: AlertType;
+  /** Sound for this task's alarm. null = use the global default from Settings. Alarms only. */
+  alarmSound: AlarmSound | null;
   enabled: boolean;
   askFollowUp: boolean; // "did you do it?" prompt; false once user opts out
 }

@@ -22,6 +22,10 @@ data class AlarmEntry(
   val offsetMin: Int,
   val snoozeEpoch: Long = 0L,
   val snoozeDate: String? = null,
+  /** content:// or file:// URI of the alarm sound; null means the phone's default alarm sound. */
+  val sound: String? = null,
+  /** Minutes the Snooze button delays an alarm. */
+  val snoozeMin: Int = 10,
 ) {
   fun toJson(): JSONObject = JSONObject().apply {
     put("key", key)
@@ -36,6 +40,8 @@ data class AlarmEntry(
     put("offsetMin", offsetMin)
     put("snoozeEpoch", snoozeEpoch)
     put("snoozeDate", snoozeDate ?: JSONObject.NULL)
+    put("sound", sound ?: JSONObject.NULL)
+    put("snoozeMin", snoozeMin)
   }
 
   companion object {
@@ -52,6 +58,10 @@ data class AlarmEntry(
       offsetMin = o.getInt("offsetMin"),
       snoozeEpoch = o.optLong("snoozeEpoch", 0L),
       snoozeDate = if (o.isNull("snoozeDate")) null else o.getString("snoozeDate"),
+      // Entries saved by older builds have no "sound" key; isNull() is true for a missing key too.
+      sound = if (o.isNull("sound")) null else o.getString("sound"),
+      // Entries saved by older builds have no "snoozeMin": optInt falls back to the old fixed 10.
+      snoozeMin = o.optInt("snoozeMin", 10),
     )
   }
 }

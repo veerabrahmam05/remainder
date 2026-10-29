@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.media.RingtoneManager
 import android.provider.Settings
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -25,6 +26,8 @@ class AlarmSchedulerModule : Module() {
     daysMask = (m["daysMask"] as Number).toInt(),
     onceDate = m["onceDate"] as String?,
     offsetMin = (m["offsetMin"] as Number).toInt(),
+    sound = m["sound"] as String?,
+    snoozeMin = (m["snoozeMin"] as? Number)?.toInt() ?: 10,
   )
 
   private fun openSettings(action: String) {
@@ -55,7 +58,7 @@ class AlarmSchedulerModule : Module() {
     }
 
     /** Fires a one-off test alarm / notification after [seconds]. */
-    AsyncFunction("scheduleTest") { kind: String, seconds: Int ->
+    AsyncFunction("scheduleTest") { kind: String, seconds: Int, sound: String?, snoozeMin: Int ->
       Notifier.ensureChannels(context)
       val at = System.currentTimeMillis() + seconds * 1000L
       val cal = Calendar.getInstance().apply { timeInMillis = at }
@@ -78,9 +81,39 @@ class AlarmSchedulerModule : Module() {
         daysMask = 0,
         onceDate = null,
         offsetMin = 0,
+        sound = if (kind == "alarm") sound else null,
+        snoozeMin = snoozeMin,
       )
       AlarmScheduler.scheduleOneShot(context, entry, at, date)
     }
+
+    /** The phone's alarm tones (title + content URI) for the in-app picker. No permission needed. */
+    AsyncFunction("listAlarmSounds") {
+      val manager = RingtoneManager(context).apply { setType(RingtoneManager.TYPE_ALARM) }
+      val cursor = manager.cursor
+      val sounds = mutableListOf<Map<String, String>>()
+      if (cursor.moveToFirst()) {
+        do {
+          sounds.add(
+            mapOf(
+              "title" to cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX),
+              "uri" to manager.getRingtoneUri(cursor.position).toString(),
+            ),
+          )
+        } while (cursor.moveToNext())
+      }
+      sounds
+    }
+
+    Function("defaultAlarmSoundTitle") {
+      val uri = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_ALARM)
+        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+      uri?.let { RingtoneManager.getRingtone(context, it)?.getTitle(context) } ?: "Default alarm"
+    }
+
+    AsyncFunction("previewSound") { uri: String? -> SoundPreview.play(context, uri) }
+
+    Function("stopPreview") { SoundPreview.stop() }
 
     Function("canScheduleExactAlarms") { AlarmScheduler.canScheduleExact(context) }
 

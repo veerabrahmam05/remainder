@@ -22,6 +22,8 @@ object Notifier {
   const val EXTRA_TASK_ID = "taskId"
   const val EXTRA_TITLE = "title"
   const val EXTRA_BODY = "body"
+  const val EXTRA_SOUND = "sound"
+  const val EXTRA_SNOOZE_MIN = "snoozeMin"
 
   fun notificationId(taskId: String, date: String, kind: String): Int = "$taskId|$date|$kind".hashCode()
 
@@ -138,4 +140,14 @@ object Notifier {
 }
 
 /** The bits of an alarm the service / activity need, passed around through intent extras. */
-data class AlarmEntryView(val key: String, val taskId: String, val date: String, val title: String, val body: String)
+data class AlarmEntryView(
+  val key: String,
+  val taskId: String,
+  val date: String,
+  val title: String,
+  val body: String,
+  /** Alarm sound URI; null = the phone's default alarm sound. */
+  val sound: String? = null,
+  /** Minutes the Snooze button delays this alarm. */
+  val snoozeMin: Int = 10,
+)

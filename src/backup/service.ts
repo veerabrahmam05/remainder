@@ -21,6 +21,8 @@ export async function exportBackup(): Promise<{ tasks: number; completions: numb
       defaultAlertType: settings.defaultAlertType,
       followUpDelayMin: settings.followUpDelayMin,
       themeMode: settings.themeMode,
+      defaultAlarmSound: settings.defaultAlarmSound,
+      snoozeMinutes: settings.snoozeMinutes,
     },
     now: Date.now(),
   });

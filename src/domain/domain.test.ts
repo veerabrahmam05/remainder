@@ -35,6 +35,7 @@ function task(over: Partial<Task> = {}): Task {
     timezone: 'UTC',
     repeat: { kind: 'weekly', days: WEEKDAYS },
     alertType: 'alarm',
+    alarmSound: null,
     enabled: true,
     askFollowUp: true,
     createdAt: created('2026-10-01'),

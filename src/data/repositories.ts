@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { daysToMask, maskToDays } from '../domain/schedule';
-import type { Completion, CompletionStatus, NewTask, Task } from '../domain/types';
+import { parseAlarmSound } from '../domain/sound';
+import type { AlarmSound, Completion, CompletionStatus, NewTask, Task } from '../domain/types';
 import { getDb } from './db';
 
 /**
@@ -35,12 +36,25 @@ export interface TaskRow {
   once_date: string | null;
   days_mask: number;
   alert_type: 'alarm' | 'notification';
+  alarm_sound: string | null;
   enabled: number;
   ask_follow_up: number;
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
 }
+
+/** Stored as JSON; anything unreadable falls back to "use the default" rather than breaking the task. */
+export function readSound(json: string | null): AlarmSound | null {
+  if (!json) return null;
+  try {
+    return parseAlarmSound(JSON.parse(json));
+  } catch {
+    return null;
+  }
+}
+
+export const writeSound = (sound: AlarmSound | null): string | null => (sound ? JSON.stringify(sound) : null);
 
 export function toTask(r: TaskRow): Task {
   return {
@@ -55,6 +69,7 @@ export function toTask(r: TaskRow): Task {
         ? { kind: 'once', date: r.once_date as string }
         : { kind: 'weekly', days: maskToDays(r.days_mask) },
     alertType: r.alert_type,
+    alarmSound: readSound(r.alarm_sound),
     enabled: r.enabled === 1,
     askFollowUp: r.ask_follow_up === 1,
     createdAt: r.created_at,
@@ -110,8 +125,8 @@ export const taskRepo: TaskRepository = {
     const id = Crypto.randomUUID();
     await db.runAsync(
       `INSERT INTO tasks (id, owner_id, title, notes, time_of_day, timezone, repeat_kind, once_date,
-         days_mask, alert_type, enabled, ask_follow_up, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         days_mask, alert_type, alarm_sound, enabled, ask_follow_up, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       input.ownerId,
       input.title,
@@ -122,6 +137,7 @@ export const taskRepo: TaskRepository = {
       input.repeat.kind === 'once' ? input.repeat.date : null,
       input.repeat.kind === 'weekly' ? daysToMask(input.repeat.days) : 0,
       input.alertType,
+      writeSound(input.alarmSound),
       input.enabled ? 1 : 0,
       input.askFollowUp ? 1 : 0,
       now,
@@ -137,7 +153,8 @@ export const taskRepo: TaskRepository = {
     const db = await getDb();
     await db.runAsync(
       `UPDATE tasks SET title = ?, notes = ?, time_of_day = ?, timezone = ?, repeat_kind = ?,
-         once_date = ?, days_mask = ?, alert_type = ?, enabled = ?, ask_follow_up = ?, updated_at = ?
+         once_date = ?, days_mask = ?, alert_type = ?, alarm_sound = ?, enabled = ?, ask_follow_up = ?,
+         updated_at = ?
        WHERE id = ?`,
       next.title,
       next.notes,
@@ -147,6 +164,7 @@ export const taskRepo: TaskRepository = {
       next.repeat.kind === 'once' ? next.repeat.date : null,
       next.repeat.kind === 'weekly' ? daysToMask(next.repeat.days) : 0,
       next.alertType,
+      writeSound(next.alarmSound),
       next.enabled ? 1 : 0,
       next.askFollowUp ? 1 : 0,
       next.updatedAt,

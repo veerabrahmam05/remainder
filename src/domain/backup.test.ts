@@ -12,6 +12,7 @@ const task: Task = {
   timezone: 'Asia/Kolkata',
   repeat: { kind: 'weekly', days: [1, 3, 5] },
   alertType: 'alarm',
+  alarmSound: { kind: 'system', uri: 'content://media/internal/audio/media/42', title: 'Cesium' },
   enabled: true,
   askFollowUp: false,
   createdAt: 1000,
@@ -25,6 +26,7 @@ const oneOff: Task = {
   title: 'Dentist',
   repeat: { kind: 'once', date: '2026-11-03' },
   alertType: 'notification',
+  alarmSound: null,
   deletedAt: 3000,
 };
 
@@ -42,7 +44,13 @@ const valid = () =>
   buildBackup({
     tasks: [task, oneOff],
     completions: [completion],
-    settings: { defaultAlertType: 'alarm', followUpDelayMin: 30, themeMode: 'dark' },
+    settings: {
+      defaultAlertType: 'alarm',
+      followUpDelayMin: 30,
+      themeMode: 'dark',
+      defaultAlarmSound: { kind: 'system', uri: 'content://media/internal/audio/media/7', title: 'Argon' },
+      snoozeMinutes: 15,
+    },
     now: 5000,
   });
 
@@ -54,7 +62,13 @@ test('a backup round-trips through JSON unchanged', () => {
   if (!result.ok) return;
   assert.deepEqual(result.backup.tasks, [task, oneOff]);
   assert.deepEqual(result.backup.completions, [completion]);
-  assert.deepEqual(result.backup.settings, { defaultAlertType: 'alarm', followUpDelayMin: 30, themeMode: 'dark' });
+  assert.deepEqual(result.backup.settings, {
+    defaultAlertType: 'alarm',
+    followUpDelayMin: 30,
+    themeMode: 'dark',
+    defaultAlarmSound: { kind: 'system', uri: 'content://media/internal/audio/media/7', title: 'Argon' },
+    snoozeMinutes: 15,
+  });
   assert.equal(result.backup.version, BACKUP_VERSION);
   assert.equal(result.backup.exportedAt, 5000);
 });
@@ -166,6 +180,20 @@ test('invalid settings are dropped without failing the restore', () => {
   const none = parse({ ...valid(), settings: 'garbage' });
   assert.equal(none.ok, true);
   if (none.ok) assert.equal(none.backup.settings, undefined);
+});
+
+test('snooze length is restored only when it is a sane whole number of minutes', () => {
+  const snooze = (value: unknown) => {
+    const r = parse({ ...valid(), settings: { snoozeMinutes: value } });
+    assert.equal(r.ok, true);
+    return r.ok ? r.backup.settings?.snoozeMinutes : undefined;
+  };
+  assert.equal(snooze(5), 5);
+  assert.equal(snooze(30), 30);
+  assert.equal(snooze(120), 120);
+  for (const bad of [0, -5, 121, 7.5, '10', null, NaN, Infinity]) {
+    assert.equal(snooze(bad), undefined, String(bad));
+  }
 });
 
 test('an empty backup is valid', () => {

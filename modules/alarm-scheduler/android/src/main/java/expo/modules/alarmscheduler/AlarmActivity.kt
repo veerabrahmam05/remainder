@@ -28,6 +28,8 @@ class AlarmActivity : Activity() {
         .putExtra(AlarmScheduler.EXTRA_DATE, e.date)
         .putExtra(Notifier.EXTRA_TITLE, e.title)
         .putExtra(Notifier.EXTRA_BODY, e.body)
+        .putExtra(Notifier.EXTRA_SOUND, e.sound)
+        .putExtra(Notifier.EXTRA_SNOOZE_MIN, e.snoozeMin)
   }
 
   private val stopped = object : BroadcastReceiver() {
@@ -50,6 +52,8 @@ class AlarmActivity : Activity() {
       date = intent.getStringExtra(AlarmScheduler.EXTRA_DATE) ?: "",
       title = intent.getStringExtra(Notifier.EXTRA_TITLE) ?: "",
       body = intent.getStringExtra(Notifier.EXTRA_BODY) ?: "",
+      sound = intent.getStringExtra(Notifier.EXTRA_SOUND),
+      snoozeMin = intent.getIntExtra(Notifier.EXTRA_SNOOZE_MIN, 10),
     )
     setContentView(buildUi(view))
 
@@ -85,7 +89,7 @@ class AlarmActivity : Activity() {
     if (e.body.isNotEmpty()) root.addView(label(e.body, 16f, Color.parseColor("#A3998F"), dp(8)))
 
     root.addView(button("Done", "#286F2F") { send(Notifier.ACTION_DONE, e) })
-    root.addView(button("Snooze 10 min", "#90623C") { send(AlarmService.ACTION_SNOOZE, e) })
+    root.addView(button("Snooze ${e.snoozeMin} min", "#90623C") { send(AlarmService.ACTION_SNOOZE, e) })
     root.addView(button("Skip today", "#443022") { send(Notifier.ACTION_SKIP, e) })
     root.addView(button("Stop", "#A52A26") { send(AlarmService.ACTION_STOP, e) })
     return root

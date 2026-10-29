@@ -1,6 +1,7 @@
 import type { AlarmEntry } from '../../modules/alarm-scheduler';
 import type { Settings } from '../data/settings';
 import { daysToMask, parseTime } from '../domain/schedule';
+import { soundUri } from '../domain/sound';
 import type { Task } from '../domain/types';
 
 /** Native entries for every enabled task: the main alert, plus an optional follow-up prompt. */
@@ -27,6 +28,9 @@ export function buildEntries(tasks: Task[], settings: Settings): AlarmEntry[] {
       title: task.title,
       body: task.notes || 'Time for your routine',
       offsetMin: 0,
+      // Only alarms play a custom sound; the task's own choice wins over the global default.
+      sound: task.alertType === 'alarm' ? soundUri(task.alarmSound ?? settings.defaultAlarmSound) : null,
+      snoozeMin: settings.snoozeMinutes,
       ...schedule,
     });
 
@@ -38,6 +42,8 @@ export function buildEntries(tasks: Task[], settings: Settings): AlarmEntry[] {
         title: 'Did you do it?',
         body: task.title,
         offsetMin: settings.followUpDelayMin,
+        sound: null,
+        snoozeMin: settings.snoozeMinutes,
         ...schedule,
       });
     }

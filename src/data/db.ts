@@ -39,6 +39,8 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // v2: per-task alarm sound (JSON, NULL = use the global default)
+  `ALTER TABLE tasks ADD COLUMN alarm_sound TEXT;`,
 ];
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;

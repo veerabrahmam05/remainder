@@ -54,7 +54,7 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     if (entry.kind == "alarm") {
-      val view = AlarmEntryView(entry.key, entry.taskId, date, entry.title, entry.body)
+      val view = AlarmEntryView(entry.key, entry.taskId, date, entry.title, entry.body, entry.sound, entry.snoozeMin)
       context.startForegroundService(AlarmService.intent(context, AlarmService.ACTION_START, view))
     } else {
       Notifier.postReminder(context, entry, date)
