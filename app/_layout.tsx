@@ -1,4 +1,8 @@
-import { Montserrat_400Regular, Montserrat_700Bold, useFonts } from '@expo-google-fonts/montserrat';
+// Import each weight from its own entry point. The package root re-exports all 18 weights, and Metro
+// bundles every font it can see, which added ~2.7 MB (6.2 MB raw) of unused fonts to the app.
+import { Montserrat_400Regular } from '@expo-google-fonts/montserrat/400Regular';
+import { Montserrat_700Bold } from '@expo-google-fonts/montserrat/700Bold';
+import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';

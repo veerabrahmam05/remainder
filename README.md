@@ -39,11 +39,11 @@ npx expo prebuild --platform android
 npx expo run:android
 ```
 
-`android/` is generated and git-ignored, so run `prebuild` once after cloning (and again after changing `app.json` or a config plugin). Use `npx expo start --dev-client` afterward for day-to-day JavaScript work; only native changes (anything under `modules/`, `app.json`, or new native dependencies) need a rebuild.
+`android/` is generated and git-ignored, so run `prebuild` once after cloning (and again after changing `app.json` or a config plugin). Use `npm start` afterward for day-to-day JavaScript work; only native changes (anything under `modules/`, `app.json`, or new native dependencies) need a rebuild.
 
 ### Running without the dev server (release build)
 
-The build above is a **debug** build: it contains no JavaScript and loads the app from Metro, so it only opens while `npm start` is running. For a standalone app that opens on its own, build the **release** variant, which bundles the JavaScript into the APK:
+The build above is a **debug** build: it contains no JavaScript and loads the app from Metro, so it only opens while `npm start` is running. The project deliberately does **not** use `expo-dev-client` (see [App size](#app-size)): a debug build has no launcher screen and connects to Metro directly. With the phone connected over USB, Expo sets that up automatically (`adb reverse`). Over Wi-Fi only, open the app's dev menu (shake the phone), choose **Dev Settings > Debug server host & port**, and enter your PC's `address:8081`. For a standalone app that opens on its own, build the **release** variant, which bundles the JavaScript into the APK:
 
 ```bash
 npm run android:release
@@ -70,7 +70,7 @@ The repo includes an `.npmrc` with `legacy-peer-deps=true`. Keep it.
 | --- | --- |
 | `npm start` | Start Metro for the development build |
 | `npm run prebuild` | Regenerate the native `android/` folder from `app.json`, `assets/` and config plugins. Run it after changing the app icon, splash, `app.json`, a config plugin, or native dependencies, **before** building |
-| `npm run android` | Build and install the debug (dev client) app on a connected device or emulator |
+| `npm run android` | Build and install the debug app on a connected device (arm64 only, see [App size](#app-size)) |
 | `npm run android:release` | Run `prebuild`, then build and install the standalone release app (no dev server needed) |
 | `npm run typecheck` | TypeScript check |
 | `npm test` | Compile and run the domain unit tests (`src/domain`) |
@@ -123,6 +123,22 @@ How a restore merges:
 - The file is validated before anything is touched: wrong app, a newer format version, or malformed tasks or history entries are rejected with a message. Unknown fields are ignored.
 
 The file format is versioned (`"version": 1`) and the parser lives in `src/domain/backup.ts`, with tests in `src/domain/backup.test.ts`.
+
+## App size
+
+A release APK was measured at **71.6 MB** (arm64), and Android showed about 128 MB once installed, because it also builds an optimized copy of the code. Our own JavaScript and assets were under 1 MB; the weight was the React Native engine (`libreactnative.so`, 23 MB) and Java/Kotlin code, including a lot of Expo dev-client tooling that a standalone app never uses (the dev launcher and menu, Jetpack Compose, and an ML Kit barcode scanner used for the launcher's QR code).
+
+After removing the dev client the APK measured **28.0 MB** (from 71.6 MB): native libraries 47.8 to 18.3 MB, Java/Kotlin code 19.2 to 2.4 MB packed (49.6 to 5.3 MB raw). R8 was already enabled by default in the generated project (`android.enableMinifyInReleaseBuilds=true`); the dev client's blanket keep rules appear to have been stopping it from shrinking anything.
+
+What was done about it:
+
+- **Fonts are imported per weight** (`@expo-google-fonts/montserrat/400Regular` and `/700Bold`, not the package root). Metro bundles every font file it can see, and the root re-exports all 18 weights, so the app was shipping 18 Montserrat files (about 6 MB raw, 2.7 MB packed) for the two it uses. Never import from the package root.
+- **R8 resource shrinking is on**, and a keep rule protects `expo.modules.alarmscheduler.**` (added in `app.json` through `expo-build-properties`). Because R8 rewrites release code, always test alarms, the sound picker, backup and notifications on a release build after changing dependencies.
+- **`expo-dev-client` is not installed.** Its launcher, dev menu, Compose and ML Kit were all being shipped inside the release app. The cost is a different dev workflow: a debug build has no launcher screen and connects to Metro directly (USB is automatic; over Wi-Fi you enter your PC's address once in the dev menu).
+- **`gifEnabled` / `webpEnabled` are off** (via `expo-build-properties` in `app.json`): the app displays no GIF or WebP images, so the decoders are left out.
+- **`buildArchs` is `arm64-v8a` only**, so a plain Gradle build can't add other CPU architectures. This means the app **won't run on an x86 emulator**; use a physical phone, or add `x86_64` to `buildArchs` in `app.json` and re-run `prebuild`.
+
+To measure a build, pull the installed APK with `adb shell pm path com.veera.remainder` then `adb pull <path> installed.apk` and compare the sizes of `lib/` and the `classes*.dex` files inside it.
 
 ## Windows notes
 
