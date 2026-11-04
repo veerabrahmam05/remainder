@@ -14,6 +14,9 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 function TabButton({
   children,
   style,
+  // The navigator passes `android_ripple: { borderless: true }` to every tab button. Spreading it
+  // onto the Pressable would bring the ripple straight back, so it must be dropped here.
+  android_ripple: _androidRipple,
   // Props of the stock PlatformPressable that a plain Pressable doesn't understand.
   pressColor: _pressColor,
   pressOpacity: _pressOpacity,
@@ -30,7 +33,7 @@ function TabButton({
   return (
     <Pressable
       {...rest}
-      // No android_ripple prop: a plain Pressable has no ripple, unlike the navigator's stock button.
+      // No android_ripple here (it was stripped above), so there is no ripple.
       // A light dim while pressed, so a tap still feels acknowledged. Remove for no feedback at all.
       style={(state) => [typeof style === 'function' ? style(state) : style, state.pressed && { opacity: 0.6 }]}
     >
