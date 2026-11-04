@@ -130,6 +130,8 @@ A release APK was measured at **71.6 MB** (arm64), and Android showed about 128 
 
 After removing the dev client the APK measured **28.0 MB** (from 71.6 MB): native libraries 47.8 to 18.3 MB, Java/Kotlin code 19.2 to 2.4 MB packed (49.6 to 5.3 MB raw). R8 was already enabled by default in the generated project (`android.enableMinifyInReleaseBuilds=true`); the dev client's blanket keep rules appear to have been stopping it from shrinking anything.
 
+After the font and resource-shrinking changes the APK is **25.5 MB** and Android reports **32.97 MB** installed (excluding data), down from 71.6 MB and about 128 MB. Fonts dropped from 19 files (6.2 MB raw) to 3, resources from 3.5 to 1.2 MB packed. What remains is mostly the unavoidable runtime: native libraries are 18.3 MB of the APK (React Native 6.7 MB, Hermes 2.6 MB, SQLite 1.8 MB), so there is little left to cut without dropping a major dependency.
+
 What was done about it:
 
 - **Fonts are imported per weight** (`@expo-google-fonts/montserrat/400Regular` and `/700Bold`, not the package root). Metro bundles every font file it can see, and the root re-exports all 18 weights, so the app was shipping 18 Montserrat files (about 6 MB raw, 2.7 MB packed) for the two it uses. Never import from the package root.
