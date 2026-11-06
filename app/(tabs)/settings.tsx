@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, AppState, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { openAppSettings, requestBatteryExemption, useBatteryState } from '../../src/alarms/battery';
 import { getNative } from '../../src/alarms/native';
 import { exportBackup, pickBackup } from '../../src/backup/service';
 import { FOLLOW_UP_DELAY_OPTIONS, SNOOZE_OPTIONS, type ThemeMode } from '../../src/data/settings';
 import { summarizeBackup, type BackupFile } from '../../src/domain/backup';
+import type { BatteryState } from '../../src/domain/battery';
 import { DEFAULT_SOUND, soundLabel, soundUri } from '../../src/domain/sound';
 import { useApp } from '../../src/store/app';
 import { Button, Card, Chip, SectionTitle } from '../../src/ui/components';
@@ -29,6 +31,18 @@ function readPermissions(): PermissionState {
   };
 }
 
+const BATTERY_TEXT: Record<BatteryState, { status: string; hint: string }> = {
+  unrestricted: { status: '✓ Unrestricted', hint: 'Nothing is limiting alarms in the background.' },
+  optimized: {
+    status: 'Optimized (default)',
+    hint: 'Android’s default for most apps. Exact alarms still ring on time; tap Allow only if they’re ever late.',
+  },
+  restricted: {
+    status: '✗ Restricted',
+    hint: 'The phone is limiting this app in the background, so alarms may fail. Tap Allow to fix.',
+  },
+};
+
 const THEME_OPTIONS: { mode: ThemeMode; label: string }[] = [
   { mode: 'system', label: 'System' },
   { mode: 'light', label: 'Light' },
@@ -41,6 +55,7 @@ export default function SettingsScreen() {
   const t = useTheme();
   const { settings, updateSettings, restoreBackup } = useApp();
   const [perms, setPerms] = useState<PermissionState>(readPermissions);
+  const battery = useBatteryState();
 
   const refreshPerms = useCallback(() => setPerms(readPermissions()), []);
 
@@ -117,27 +132,42 @@ export default function SettingsScreen() {
     }
   };
 
+  /**
+   * One permission row. Usually just ok / not ok, but `status` allows a neutral "warn" state for
+   * things that aren't a problem yet (e.g. battery "Optimized", Android's harmless default).
+   */
   const PermissionRow = ({
     label,
     ok,
+    status,
+    statusText,
+    fixLabel = 'Fix',
     hint,
     onFix,
   }: {
     label: string;
-    ok: boolean;
+    ok?: boolean;
+    status?: 'ok' | 'warn' | 'bad';
+    statusText?: string;
+    fixLabel?: string;
     hint: string;
     onFix: () => void;
-  }) => (
-    <View style={styles.permRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: t.text, fontWeight: '700' }}>
-          {label} <Text style={{ color: ok ? t.done : t.missed }}>{ok ? '✓ Allowed' : '✗ Not allowed'}</Text>
-        </Text>
-        <Text style={{ color: t.muted, marginTop: 2 }}>{hint}</Text>
+  }) => {
+    const s = status ?? (ok ? 'ok' : 'bad');
+    const text = statusText ?? (s === 'ok' ? '✓ Allowed' : '✗ Not allowed');
+    const color = s === 'ok' ? t.done : s === 'warn' ? t.muted : t.missed;
+    return (
+      <View style={styles.permRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: t.text, fontWeight: '700' }}>
+            {label} <Text style={{ color }}>{text}</Text>
+          </Text>
+          <Text style={{ color: t.muted, marginTop: 2 }}>{hint}</Text>
+        </View>
+        {s === 'ok' ? null : <Chip label={fixLabel} selected={false} onPress={onFix} />}
       </View>
-      {ok ? null : <Chip label="Fix" selected={false} onPress={onFix} />}
-    </View>
-  );
+    );
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -233,10 +263,29 @@ export default function SettingsScreen() {
             hint="Lets alarms take over the lock screen."
             onFix={() => native?.openFullScreenIntentSettings()}
           />
+          {battery.state ? (
+            <PermissionRow
+              label="Battery"
+              status={battery.state === 'unrestricted' ? 'ok' : battery.state === 'optimized' ? 'warn' : 'bad'}
+              statusText={BATTERY_TEXT[battery.state].status}
+              fixLabel="Allow"
+              hint={BATTERY_TEXT[battery.state].hint}
+              onFix={requestBatteryExemption}
+            />
+          ) : null}
         </Card>
       ) : (
         <Text style={{ color: t.muted }}>Alarm support isn’t available in this build.</Text>
       )}
+      {perms.available ? (
+        <View style={{ marginTop: 12, gap: 10 }}>
+          <Text style={{ color: t.muted }}>
+            Some phones have their own “auto-start” or “background activity” switch that the system can’t report.
+            If alarms are ever late, open the app’s settings and check Battery and Auto-start.
+          </Text>
+          <Button label="Open app settings" variant="secondary" onPress={openAppSettings} />
+        </View>
+      ) : null}
 
       <SectionTitle>Backup</SectionTitle>
       <View style={{ gap: 10 }}>

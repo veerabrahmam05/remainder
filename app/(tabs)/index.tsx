@@ -2,11 +2,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { requestBatteryExemption, useBatteryState } from '../../src/alarms/battery';
+import { hasActiveTasks, shouldShowBatteryPrompt } from '../../src/domain/battery';
 import { entriesForDay, indexCompletions, streakFor, type DayEntry } from '../../src/domain/history';
 import { fireTime, repeatLabel } from '../../src/domain/schedule';
 import type { Task } from '../../src/domain/types';
 import { useApp } from '../../src/store/app';
 import { ActionSheet, type SheetAction } from '../../src/ui/ActionSheet';
+import { BatteryBanner } from '../../src/ui/BatteryBanner';
 import { Button, Card, Checkbox, Empty } from '../../src/ui/components';
 import { formatDate, formatTime } from '../../src/ui/format';
 import { Text } from '../../src/ui/Text';
@@ -15,8 +18,14 @@ import { type as typeScale, useTheme } from '../../src/ui/theme';
 export default function TodayScreen() {
   const t = useTheme();
   const router = useRouter();
-  const { tasks, completions, today, ready, setStatus, setEnabled, deleteTask } = useApp();
+  const { tasks, completions, today, ready, settings, setStatus, setEnabled, deleteTask, updateSettings } = useApp();
   const [menu, setMenu] = useState<DayEntry | null>(null);
+  const battery = useBatteryState();
+  const showBatteryPrompt = shouldShowBatteryPrompt({
+    state: battery.state,
+    dismissed: settings.batteryPromptDismissed,
+    hasActiveTasks: hasActiveTasks(tasks),
+  });
 
   const index = useMemo(() => indexCompletions(completions), [completions]);
   const entries = useMemo(() => entriesForDay(tasks, index, today, today), [tasks, index, today]);
@@ -105,6 +114,12 @@ export default function TodayScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListHeaderComponent={
           <View style={{ marginBottom: 12, gap: 10 }}>
+            {showBatteryPrompt ? (
+              <BatteryBanner
+                onAllow={requestBatteryExemption}
+                onDismiss={() => void updateSettings({ batteryPromptDismissed: true })}
+              />
+            ) : null}
             <View>
               <Text style={[styles.date, { color: t.text }]}>{formatDate(today)}</Text>
               <Text style={{ color: t.muted, marginTop: 2 }}>

@@ -1,10 +1,15 @@
 package expo.modules.alarmscheduler
 
+import android.app.AppOpsManager
 import android.app.NotificationManager
+import android.app.usage.UsageStatsManager
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.os.Process
 import android.media.RingtoneManager
 import android.provider.Settings
 import expo.modules.kotlin.modules.Module
@@ -139,6 +144,53 @@ class AlarmSchedulerModule : Module() {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
         openSettings(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
       }
+    }
+
+    /**
+     * How the system treats this app's background activity:
+     *  - "unrestricted": on the battery-exemption list.
+     *  - "restricted":   the system forbids background activity or put the app in the restricted standby
+     *                    bucket. Alarms can fail. This is the only state worth warning about.
+     *  - "optimized":    Android's default for almost every app. Exact alarms still ring on time.
+     * Phone-maker switches (auto-start, "high background power use") are invisible to apps.
+     */
+    Function("batteryState") {
+      val pm = context.getSystemService(PowerManager::class.java)
+      if (pm.isIgnoringBatteryOptimizations(context.packageName)) {
+        "unrestricted"
+      } else {
+        var restricted = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+          val appOps = context.getSystemService(AppOpsManager::class.java)
+          val mode = appOps.unsafeCheckOpNoThrow(
+            "android:run_any_in_background",
+            Process.myUid(),
+            context.packageName,
+          )
+          val bucket = context.getSystemService(UsageStatsManager::class.java).appStandbyBucket
+          // 45 = STANDBY_BUCKET_RESTRICTED
+          restricted = mode == AppOpsManager.MODE_IGNORED || mode == AppOpsManager.MODE_ERRORED || bucket >= 45
+        }
+        if (restricted) "restricted" else "optimized"
+      }
+    }
+
+    /** Shows Android's one-tap "allow unrestricted battery use?" dialog; falls back to the full list. */
+    Function("requestIgnoreBatteryOptimizations") {
+      val request = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      try {
+        context.startActivity(request)
+      } catch (_: ActivityNotFoundException) {
+        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+      }
+    }
+
+    /** The app's own settings page: where phone-specific switches (auto-start, background activity) live. */
+    Function("openAppSettings") {
+      val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      context.startActivity(intent)
     }
 
     Function("openNotificationSettings") {

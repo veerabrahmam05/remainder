@@ -149,7 +149,19 @@ To measure a build, pull the installed APK with `adb shell pm path com.veera.rem
 
 ## Permissions and device settings
 
-Alarms depend on Android permissions and on how aggressive the phone's battery manager is. In the app, **Settings > Permissions** shows the status of notifications, exact alarms, and full-screen alarms, with a shortcut to fix each. On some phones you also need to set the app's battery usage to unrestricted and allow auto-start for alarms to fire reliably while the app is closed.
+Alarms depend on Android permissions and on how aggressive the phone's battery manager is. In the app, **Settings > Permissions** shows the status of notifications, exact alarms, full-screen alarms, and battery, with a shortcut to fix each.
+
+**Battery status.** The app reads one of three states (`batteryState` in the native module):
+
+- **Unrestricted**: on Android's battery-exemption list.
+- **Optimized (default)**: what almost every app is in. Exact alarms (`setAlarmClock`) are exempt from Doze and still ring on time, so this is shown neutrally in Settings, with an **Allow** button for anyone who wants the extra margin. It does **not** trigger the banner.
+- **Restricted**: the system forbids background activity (`RUN_ANY_IN_BACKGROUND` denied) or put the app in the restricted standby bucket. Alarms can fail. This is the only state that shows a banner.
+
+When the app is restricted and at least one task is enabled, the Today screen shows a banner ("Make sure alarms ring on time") with **Allow**, which opens Android's own "allow unrestricted battery use?" dialog, and **Not now**, which hides the banner for good (`battery_prompt_dismissed` in the settings table; it is device-specific, so it is not part of backups). The state is re-read whenever the app returns to the foreground. The decision logic is `shouldShowBatteryPrompt` in `src/domain/battery.ts`, with tests.
+
+An earlier version treated "not on the exemption list" as a red "Not allowed". On a vivo phone that was wrong: the system was not restricting the app at all (background activity allowed, active standby bucket), the app was simply in the default optimized state, and the phone maker's own "allow background running" setting does not add apps to Android's exemption list. Hence the three states.
+
+Android can only report and request the standard battery exemption (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`). Phone-specific switches such as "auto-start" or "background activity" cannot be detected, so Settings also has an **Open app settings** shortcut. If you publish the app on Google Play, note that Play restricts that permission to apps whose core function needs it (alarm and reminder apps are an accepted case, but it must be declared).
 
 ## Status
 

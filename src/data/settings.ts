@@ -13,6 +13,8 @@ export interface Settings {
   defaultAlarmSound: AlarmSound;
   /** How long the alarm's Snooze button delays it, in minutes. */
   snoozeMinutes: number;
+  /** The user chose "Not now" on the battery banner. Device-specific, so it isn't part of backups. */
+  batteryPromptDismissed: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -21,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   themeMode: 'system',
   defaultAlarmSound: DEFAULT_SOUND,
   snoozeMinutes: 10,
+  batteryPromptDismissed: false,
 };
 
 export const FOLLOW_UP_DELAY_OPTIONS = [15, 30, 60, 120, 240];
@@ -39,7 +42,7 @@ export async function loadSettings(): Promise<Settings> {
   const db = await getDb();
   const rows = await db.getAllAsync<{ key: string; value: string }>(
     `SELECT key, value FROM settings
-     WHERE key IN ('default_alert_type', 'follow_up_delay_min', 'theme_mode', 'default_alarm_sound', 'snooze_minutes')`,
+     WHERE key IN ('default_alert_type', 'follow_up_delay_min', 'theme_mode', 'default_alarm_sound', 'snooze_minutes', 'battery_prompt_dismissed')`,
   );
   const map = new Map(rows.map((r) => [r.key, r.value]));
   const alert = map.get('default_alert_type');
@@ -52,6 +55,7 @@ export async function loadSettings(): Promise<Settings> {
     themeMode: theme === 'light' || theme === 'dark' || theme === 'system' ? theme : DEFAULT_SETTINGS.themeMode,
     defaultAlarmSound: readSoundSetting(map.get('default_alarm_sound')),
     snoozeMinutes: Number.isInteger(snooze) && snooze > 0 ? snooze : DEFAULT_SETTINGS.snoozeMinutes,
+    batteryPromptDismissed: map.get('battery_prompt_dismissed') === '1',
   };
 }
 
@@ -68,4 +72,7 @@ export async function saveSettings(patch: Partial<Settings>): Promise<void> {
   if (patch.themeMode) await put('theme_mode', patch.themeMode);
   if (patch.defaultAlarmSound) await put('default_alarm_sound', JSON.stringify(patch.defaultAlarmSound));
   if (patch.snoozeMinutes) await put('snooze_minutes', String(patch.snoozeMinutes));
+  if (patch.batteryPromptDismissed !== undefined) {
+    await put('battery_prompt_dismissed', patch.batteryPromptDismissed ? '1' : '0');
+  }
 }

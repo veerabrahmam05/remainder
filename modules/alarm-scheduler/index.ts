@@ -56,6 +56,15 @@ interface AlarmSchedulerNative {
   canScheduleExactAlarms(): boolean;
   areNotificationsEnabled(): boolean;
   canUseFullScreenIntent(): boolean;
+  /**
+   * How the system treats the app's background activity. "optimized" is Android's default and is fine
+   * for alarms; only "restricted" is a problem. Phone-maker switches can't be seen.
+   */
+  batteryState(): 'unrestricted' | 'optimized' | 'restricted';
+  /** Shows Android's "allow unrestricted battery use?" dialog. */
+  requestIgnoreBatteryOptimizations(): void;
+  /** Opens the app's system settings page (auto-start / background activity on some phones). */
+  openAppSettings(): void;
   openExactAlarmSettings(): void;
   openFullScreenIntentSettings(): void;
   openNotificationSettings(): void;
